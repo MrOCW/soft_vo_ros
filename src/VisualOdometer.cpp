@@ -1,13 +1,13 @@
 #include "VisualOdometer.h"
 
-
-VisualOdometer::VisualOdometer(ros::NodeHandle& nh)
+VisualOdometer::VisualOdometer(ros::NodeHandle& nh,image_transport::ImageTransport it)
 {
     // publisher
+    pubFeatureImg = it.advertise("/feature_image",1);
     pub_odom = nh.advertise<nav_msgs::Odometry> ("/vo/odom", 1);
     projection_mat_initialized = false;
     vo_initialized = false;
-    staticTF();
+    //staticTF();
 }
 
 void VisualOdometer::staticTF()
@@ -80,7 +80,7 @@ void VisualOdometer::constructOdomMsg(ros::Time stamp, cv::Mat& frame_pose, cv::
     odom.pose.pose.orientation = odom_quat;
 
     //set the velocity
-    odom.child_frame_id = "camera";
+    odom.child_frame_id = "camera_color_left";
     // odom.twist.twist.linear.x = vx;
     // odom.twist.twist.linear.y = vy;
     // odom.twist.twist.angular.z = vth;
@@ -133,11 +133,7 @@ void VisualOdometer::tracking(cv::Mat& image_left, cv::Mat& image_right, ros::Ti
     else
     {
         std::vector<cv::Point2f> pointsLeft_t0, pointsRight_t0, pointsLeft_t1, pointsRight_t1;  
-        std::vector<cv::Point2f> oldPointsLeft_t0 = currentVOFeatures.points;
-
-        // std::cout << " image_left_last height width: " << image_left_last.rows << " " <<image_left_last.cols << std::endl;
-
-    
+        std::vector<cv::Point2f> oldPointsLeft_t0 = currentVOFeatures.points;   
 
         matchingFeatures( image_left_last, image_right_last,
                           image_left, image_right, 
@@ -145,9 +141,7 @@ void VisualOdometer::tracking(cv::Mat& image_left, cv::Mat& image_right, ros::Ti
                           pointsLeft_t0, 
                           pointsRight_t0, 
                           pointsLeft_t1, 
-                          pointsRight_t1,
-                          50,
-                          2);  
+                          pointsRight_t1);  
 
         float delta_t = (stamp - stamp_last).toSec();
         image_left_last = image_left;
@@ -194,10 +188,8 @@ void VisualOdometer::tracking(cv::Mat& image_left, cv::Mat& image_right, ros::Ti
 
             // translation = -translation;
 
-            // displayTracking(image_left, pointsLeft_t0, pointsLeft_t1);
-            // cv::waitKey(1);
-
-
+            sensor_msgs::ImagePtr featureImg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", constructFeatureImg(image_left,pointsLeft_t0,pointsLeft_t1)).toImageMsg();
+            pubFeatureImg.publish(featureImg);
             // ------------------------------------------------
             // Intergrating and display
             // ------------------------------------------------
@@ -211,7 +203,6 @@ void VisualOdometer::tracking(cv::Mat& image_left, cv::Mat& image_right, ros::Ti
             {
                  integrateOdometry(frame_pose, trans);
                  constructOdomMsg(stamp, frame_pose, rotation, translation, delta_t);
-
             }
 
             std::cout << "frame_pose" << frame_pose << std::endl;
@@ -237,6 +228,7 @@ void VisualOdometer::tracking(cv::Mat& image_left, cv::Mat& image_right, ros::Ti
             std::cerr << "[]WARNING] Matched feature cirtically low" << pose.t() << std::endl;
 
         }
+
 
     }
 
@@ -299,7 +291,36 @@ void VisualOdometer::imageGrabCallback(const sensor_msgs::ImageConstPtr& left_im
         tracking(image_left, image_right, stamp);
     }
 }
+cv::Mat VisualOdometer::constructFeatureImg(cv::Mat& imageLeft_t1, 
+                     std::vector<cv::Point2f>&  pointsLeft_t0,
+                     std::vector<cv::Point2f>&  pointsLeft_t1)
+{
+    // -----------------------------------------
+    // Display feature racking
+    // -----------------------------------------
+    int radius = 2;
+    cv::Mat vis;
 
+    cv::cvtColor(imageLeft_t1, vis, cv::COLOR_GRAY2BGR, 3);
+
+
+    for (int i = 0; i < pointsLeft_t0.size(); i++)
+    {
+        cv::circle(vis, cv::Point(pointsLeft_t0[i].x, pointsLeft_t0[i].y), radius, CV_RGB(0,255,0));
+    }
+
+    for (int i = 0; i < pointsLeft_t1.size(); i++)
+    {
+        cv::circle(vis, cv::Point(pointsLeft_t1[i].x, pointsLeft_t1[i].y), radius, CV_RGB(255,0,0));
+    }
+
+    for (int i = 0; i < pointsLeft_t1.size(); i++)
+    {
+        cv::line(vis, pointsLeft_t0[i], pointsLeft_t1[i], CV_RGB(0,255,0));
+    }
+    return vis;
+
+}
 VisualOdometer::~VisualOdometer()
 {
 

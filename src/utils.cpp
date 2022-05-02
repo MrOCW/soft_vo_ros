@@ -12,7 +12,7 @@ void drawFeaturePoints(cv::Mat image, std::vector<cv::Point2f>& points)
     
     for (int i = 0; i < points.size(); i++)
     {
-        circle(image, cvPoint(points[i].x, points[i].y), radius, CV_RGB(255,255,255));
+        circle(image, cv::Point(points[i].x, points[i].y), radius, CV_RGB(255,255,255));
     }
 }
 
@@ -75,7 +75,7 @@ void integrateOdometryStereo(int frame_i, cv::Mat& rigid_body_transformation, cv
     // frame_pose = frame_pose * rigid_body_transformation;
     std::cout << "scale: " << scale << std::endl;
 
-    // rigid_body_transformation = rigid_body_transformation.inv();
+    rigid_body_transformation = rigid_body_transformation.inv();
     // if ((scale>0.1)&&(translation_stereo.at<double>(2) > translation_stereo.at<double>(0)) && (translation_stereo.at<double>(2) > translation_stereo.at<double>(1))) 
     if (scale > 0.05 && scale < 10) 
     {
@@ -172,10 +172,9 @@ void loadGyro(std::string filename, std::vector<std::vector<double>>& time_gyros
 void loadImageLeft(cv::Mat& image_color, cv::Mat& image_gary, int frame_id, std::string filepath){
     char file[200];
     sprintf(file, "image_0/%06d.png", frame_id);
-    
+
     // sprintf(file, "image_0/%010d.png", frame_id);
     std::string filename = filepath + std::string(file);
-
     image_color = cv::imread(filename, cv::IMREAD_COLOR);
     cvtColor(image_color, image_gary, cv::COLOR_BGR2GRAY);
 }
@@ -186,7 +185,6 @@ void loadImageRight(cv::Mat& image_color, cv::Mat& image_gary, int frame_id, std
 
     // sprintf(file, "image_0/%010d.png", frame_id);
     std::string filename = filepath + std::string(file);
-
     image_color = cv::imread(filename, cv::IMREAD_COLOR);
     cvtColor(image_color, image_gary, cv::COLOR_BGR2GRAY);
 }

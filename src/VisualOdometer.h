@@ -7,6 +7,7 @@
 #include "sensor_msgs/CameraInfo.h"
 #include "nav_msgs/Odometry.h"
 #include "std_msgs/Time.h"
+#include <image_transport/image_transport.h>
 
 #include <cv_bridge/cv_bridge.h>
 #include <tf/transform_broadcaster.h>
@@ -31,7 +32,7 @@ class VisualOdometer
 {
 public:
 
-    VisualOdometer(ros::NodeHandle& nh);
+    VisualOdometer(ros::NodeHandle& nh,image_transport::ImageTransport it);
     ~VisualOdometer();
     void imageGrabCallback(const sensor_msgs::ImageConstPtr& left_image_msg_ptr, const sensor_msgs::ImageConstPtr& right_image_msg_ptr, 
                            const sensor_msgs::CameraInfoConstPtr& left_cam_info_msg_ptr, const sensor_msgs::CameraInfoConstPtr& right_cam_info_msg_ptr);
@@ -45,10 +46,16 @@ public:
 
     void integrateOdometry(cv::Mat& frame_pose, cv::Mat& trans);
     void constructOdomMsg(ros::Time stamp, cv::Mat& frame_pose, cv::Mat& rotation, cv::Mat& translation, float dt);
+    cv::Mat constructFeatureImg(cv::Mat& imageLeft_t1, 
+                     std::vector<cv::Point2f>&  pointsLeft_t0,
+                     std::vector<cv::Point2f>&  pointsLeft_t1);
+
     void staticTF();
 
 private:
+
     ros::Publisher pub_odom;
+    image_transport::Publisher pubFeatureImg;
     
     cv::Mat projMatrl;
     cv::Mat projMatrr;
