@@ -40,7 +40,7 @@ rosrun soft_vo_ros
 Currently debugging pose/transform issues  
 Runs without error on CUDA enabled OpenCV  
 CPU version throws error at [calcOpticalFlowPyrLK](src/feature.cpp)  
-Image with feature tracking is published on /feature_points topic  
+Image with feature tracking is published on /feature_image topic  
 
 
 ### GPU CUDA acceleration
