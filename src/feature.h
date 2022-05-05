@@ -78,4 +78,8 @@ void appendNewFeatures(cv::Mat& image, FeatureSet& current_features);
 
 void appendNewFeatures(std::vector<cv::Point2f> points_new, FeatureSet& current_features);
 
+void featureDetection(cv::Mat& inputImg, FeatureSet& voFeatures);
+bool checkMinValidity(cv::Mat& inputImg, int minPixIntensity, int minI, int minJ, int n, int margin);
+bool checkMaxValidity(cv::Mat& inputImg, int maxPixIntensity, int maxI, int maxJ, int n, int margin);
+void nms(cv::Mat& blobImg,cv::Mat& cornerImg, FeatureSet& voFeatures, int n, int tau, int margin);
 #endif

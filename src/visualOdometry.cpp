@@ -96,6 +96,7 @@ void matchingFeatures(cv::Mat& imageLeft_t0, cv::Mat& imageRight_t0,
     {
 
         // append new features with old features
+        //featureDetection(imageLeft_t0, currentVOFeatures);
         appendNewFeatures(imageLeft_t0, currentVOFeatures);   
         std::cout << "New feature set size: " << currentVOFeatures.points.size() << std::endl;
     }
@@ -115,7 +116,6 @@ void matchingFeatures(cv::Mat& imageLeft_t0, cv::Mat& imageRight_t0,
 	    circularMatching(imageLeft_t0, imageRight_t0, imageLeft_t1, imageRight_t1,
                      pointsLeft_t0, pointsRight_t0, pointsLeft_t1, pointsRight_t1, pointsLeftReturn_t0, currentVOFeatures);
     #endif
-    std::cout<<"Circular matching done"<<std::endl;
     std::vector<bool> status;
     checkValidMatch(pointsLeft_t0, pointsLeftReturn_t0, status, 0);
 
@@ -125,6 +125,7 @@ void matchingFeatures(cv::Mat& imageLeft_t0, cv::Mat& imageRight_t0,
     removeInvalidPoints(pointsRight_t1, status);
 
     currentVOFeatures.points = pointsLeft_t1;
+    std::cout << "currentFramePointsLeft size : " << pointsLeft_t0.size() << std::endl;
 
 }
 
@@ -171,18 +172,22 @@ void trackingFrame2Frame(cv::Mat& projMatrl, cv::Mat& projMatrr,
       bool useExtrinsicGuess = true;
       int flags =cv::SOLVEPNP_ITERATIVE;
 
-      #if 1
+    //   clock_t tic = clock();
+    //   #if USE_CUDA
+      
+    //   std::vector<int> inliers;
+    //   cv::cuda::solvePnPRansac(points3D_t0.t(), cv::Mat(1, (int)pointsLeft_t1.size(), CV_32FC2, &pointsLeft_t1[0]),
+    //                         intrinsic_matrix, cv::Mat(1, 8, CV_32F, cv::Scalar::all(0)),
+    //                         rvec, translation, false, 200, 0.5, 20, &inliers);
+    //   std::cout<<"PnPRANSAC(CUDA):"<<clock()-tic<<std::endl;
+    //   #else
+    // non CUDA version runs faster
       cv::Mat inliers; 
       cv::solvePnPRansac( points3D_t0, pointsLeft_t1, intrinsic_matrix, distCoeffs, rvec, translation,
                           useExtrinsicGuess, iterationsCount, reprojectionError, confidence,
                           inliers, flags );
-      #endif
-      #if 0
-      std::vector<int> inliers;
-      cv::cuda::solvePnPRansac(points3D_t0.t(), cv::Mat(1, (int)pointsLeft_t1.size(), CV_32FC2, &pointsLeft_t1[0]),
-                            intrinsic_matrix, cv::Mat(1, 8, CV_32F, cv::Scalar::all(0)),
-                            rvec, translation, false, 200, 0.5, 20, &inliers);
-      #endif
+    //   std::cout<<"PnPRANSAC:"<<clock()-tic<<std::endl;
+    //   #endif
       if (!mono_rotation)
       {
         cv::Rodrigues(rvec, rotation);

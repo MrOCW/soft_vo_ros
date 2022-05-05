@@ -63,7 +63,7 @@ add_library(visualOdometry SHARED src/visualOdometry.cpp)
 add_library(rgbd_standalone SHARED src/rgbd_standalone.cpp)
 add_library(Frame SHARED src/Frame.cpp)
 add_library(VisualOdometer SHARED src/VisualOdometer.cpp)
-#add_executable( run src/main.cpp )
+add_executable( run src/main.cpp )
 add_executable( vo_node src/visual_odom_node.cpp )
 
 target_link_libraries( bucket ${OpenCV_LIBS} )
@@ -73,7 +73,7 @@ target_link_libraries( visualOdometry utils bucket feature ${OpenCV_LIBS})
 target_link_libraries( VisualOdometer visualOdometry ${catkin_LIBRARIES})
 
 target_link_libraries( Frame ${OpenCV_LIBS} )
-#target_link_libraries( run ${OpenCV_LIBS} bucket feature utils visualOdometry Frame rgbd_standalone )
+target_link_libraries( run ${OpenCV_LIBS} bucket feature utils visualOdometry Frame rgbd_standalone )
 target_link_libraries( vo_node ${OpenCV_LIBS} bucket feature utils visualOdometry Frame ${catkin_LIBRARIES} VisualOdometer)
 
 #############

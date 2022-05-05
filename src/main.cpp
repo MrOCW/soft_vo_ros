@@ -43,7 +43,6 @@ int main(int argc, char **argv)
         // load ground truth pose
         string filename_pose = string(argv[3]);
         pose_matrix_gt = loadPoses(filename_pose);
-
     }
     if(argc < 3)
     {
@@ -87,8 +86,8 @@ int main(int argc, char **argv)
     cv::Mat frame_pose = cv::Mat::eye(4, 4, CV_64F);
     cv::Mat frame_pose32 = cv::Mat::eye(4, 4, CV_32F);
 
-    std::cout << "frame_pose " << frame_pose << std::endl;
-    cv::Mat trajectory = cv::Mat::zeros(600, 1200, CV_8UC3);
+    cout << "frame_pose " << frame_pose << endl;
+    cv::Mat trajectory = cv::Mat::zeros(1200, 1800, CV_8UC3);
     FeatureSet currentVOFeatures;
     cv::Mat points4D, points3D;
     int init_frame_id = 0;
@@ -117,13 +116,10 @@ int main(int argc, char **argv)
     // -----------------------------------------
     // Run visual odometry
     // -----------------------------------------
-    std::vector<FeaturePoint> oldFeaturePointsLeft;
-    std::vector<FeaturePoint> currentFeaturePointsLeft;
-
     for (int frame_id = init_frame_id+1; frame_id < 9000; frame_id++)
     {
 
-        std::cout << std::endl << "frame id " << frame_id << std::endl;
+        cout << endl << "frame id " << frame_id << endl;
         // ------------
         // Load images
         // ------------
@@ -142,10 +138,9 @@ int main(int argc, char **argv)
 
 
         t_a = clock();
-        std::vector<cv::Point2f> oldPointsLeft_t0 = currentVOFeatures.points;
 
 
-        std::vector<cv::Point2f> pointsLeft_t0, pointsRight_t0, pointsLeft_t1, pointsRight_t1;  
+        vector<cv::Point2f> pointsLeft_t0, pointsRight_t0, pointsLeft_t1, pointsRight_t1;  
         matchingFeatures( imageLeft_t0, imageRight_t0,
                           imageLeft_t1, imageRight_t1, 
                           currentVOFeatures,
@@ -156,12 +151,6 @@ int main(int argc, char **argv)
 
         imageLeft_t0 = imageLeft_t1;
         imageRight_t0 = imageRight_t1;
-
-        std::vector<cv::Point2f>& currentPointsLeft_t0 = pointsLeft_t0;
-        std::vector<cv::Point2f>& currentPointsLeft_t1 = pointsLeft_t1;
-        
-        std::vector<cv::Point2f> newPoints;
-        std::vector<bool> valid; // valid new points are ture
 
         // ---------------------
         // Triangulate 3D Points
@@ -180,7 +169,7 @@ int main(int argc, char **argv)
 	clock_t tic_gpu = clock();
         trackingFrame2Frame(projMatrl, projMatrr, pointsLeft_t0, pointsLeft_t1, points3D_t0, rotation, translation, false);
 	clock_t toc_gpu = clock();
-	std::cerr << "tracking frame 2 frame: " << float(toc_gpu - tic_gpu)/CLOCKS_PER_SEC*1000 << "ms" << std::endl;
+	    cerr << "tracking frame 2 frame: " << float(toc_gpu - tic_gpu)/CLOCKS_PER_SEC*1000 << "ms" << endl;
         displayTracking(imageLeft_t1, pointsLeft_t0, pointsLeft_t1);
 
 
@@ -204,7 +193,7 @@ int main(int argc, char **argv)
 
         } else {
 
-            std::cout << "Too large rotation"  << std::endl;
+            cout << "Too large rotation"  << endl;
         }
         t_b = clock();
         float frame_time = 1000*(double)(t_b-t_a)/CLOCKS_PER_SEC;
@@ -217,8 +206,9 @@ int main(int argc, char **argv)
         // std::cout << "translation: " << translation.t() << std::endl;
         // std::cout << "frame_pose" << frame_pose << std::endl;
 
-
+        std::cout << "frame_pose" << frame_pose << std::endl;
         cv::Mat xyz = frame_pose.col(3).clone();
+        
         display(frame_id, trajectory, xyz, pose_matrix_gt, fps, display_ground_truth);
 
     }

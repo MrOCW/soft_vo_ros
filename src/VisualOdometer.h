@@ -33,6 +33,7 @@ class VisualOdometer
 public:
 
     VisualOdometer(ros::NodeHandle& nh,image_transport::ImageTransport it);
+    VisualOdometer(ros::NodeHandle& nh,image_transport::ImageTransport it,std::string filename_pose);
     ~VisualOdometer();
     void imageGrabCallback(const sensor_msgs::ImageConstPtr& left_image_msg_ptr, const sensor_msgs::ImageConstPtr& right_image_msg_ptr, 
                            const sensor_msgs::CameraInfoConstPtr& left_cam_info_msg_ptr, const sensor_msgs::CameraInfoConstPtr& right_cam_info_msg_ptr);
@@ -84,7 +85,8 @@ private:
     cv::Mat trajectory = cv::Mat::zeros(600, 1200, CV_8UC3);
     cv::Mat points4D, points3D;
     int frame_id = 0;
-
+    cv::Mat_<double> cam_T_cam_opt;
+    std::vector<Matrix> pose_matrix_gt;
 };
 
 

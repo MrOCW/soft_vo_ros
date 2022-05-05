@@ -25,22 +25,18 @@ Tested on [KITTI](http://www.cvlibs.net/datasets/kitti/eval_odometry.php) odomet
 
 ### Compile & Run
 ```bash
+cd <your_ws>/src
 git clone https://github.com/MrOCW/soft_vo_ros
-```
-The system use **Camera Parameters** in calibration/xx.yaml, put your own camera parameters in the same format and pass the path when you run.
-
-```bash
+cd ..
 catkin_make
 ```
 
 ### Run VO Node
 ```bash
-rosrun soft_vo_ros
+rosrun soft_vo_ros vo_node
 ```  
-Currently debugging pose/transform issues  
-Runs without error on CUDA enabled OpenCV  
-CPU version throws error at [calcOpticalFlowPyrLK](src/feature.cpp)  
 Image with feature tracking is published on /feature_image topic  
+Currently, ROS version does not perform as well as standalone version for some reason  
 
 
 ### GPU CUDA acceleration
@@ -49,7 +45,7 @@ To enable GPU acceleration
 2. Install CUDA, compile and install CUDA supported OpenCV 
 3. When compiling, use 
 ```bash
-catkin_make -DUSE_CUDA=on
+catkin_make -DUSE_CUDA=ON
 ```
 4. Compile & Run
 

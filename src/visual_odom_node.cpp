@@ -13,13 +13,14 @@
 
 int main(int argc, char **argv)
 {
+  
 
   ros::init(argc, argv, "visual_odom_node");
   ros::NodeHandle nh;
 
   
   image_transport::ImageTransport it(nh);
-  VisualOdometer visual_odometer(nh,it);
+  VisualOdometer visual_odometer(nh,it, std::string(argv[1]));
 
   image_transport::SubscriberFilter left_image_sub(it, "/kitti/camera_color_left/image_raw", 1);
   image_transport::SubscriberFilter right_image_sub(it, "/kitti/camera_color_right/image_raw", 1);

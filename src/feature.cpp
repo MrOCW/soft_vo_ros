@@ -1,5 +1,7 @@
 #include "feature.h"
 #include "bucket.h"
+cv::Mat blobFilter = (cv::Mat_<float>(5, 5) << -1,-1,-1,-1,-1,-1,1,1,1,-1,-1,1,8,1,-1,-1,1,1,1,-1,-1,-1,-1,-1,-1);
+cv::Mat cornerFilter = (cv::Mat_<float>(5, 5) << -1,-1,0,1,1,-1,-1,0,1,1,0,0,0,0,0,1,1,0,-1,-1,1,1,0,-1,-1);
 
 #if USE_CUDA
 static void download(const cv::cuda::GpuMat& d_mat, std::vector<cv::Point2f>& vec)
@@ -15,8 +17,222 @@ static void download(const cv::cuda::GpuMat& d_mat, std::vector<uchar>& vec)
     cv::Mat mat(1, d_mat.cols, CV_8UC1, (void*)&vec[0]);
     d_mat.download(mat);
 }
-#endif
 
+
+bool checkMinValidity(cv::Mat& inputImg, int minPixIntensity, int minI, int minJ, int n, int margin)
+{
+  int height = inputImg.size().height;
+  int width = inputImg.size().width;
+  double min;
+  cv::Point minLoc;
+  cv::Mat window = inputImg(cv::Range((minI - n),std::min(minI + n, height - 1 - margin)),cv::Range((minJ - n),std::min(minJ + n, width - 1 - margin)));
+  cv::minMaxLoc(window,&min,NULL,&minLoc);
+  //cv::imshow("check",window);
+  //cv::waitKey(0);
+  if (min < minPixIntensity && ( minLoc.x < minJ || minLoc.x > (minJ + n) || minLoc.y < minI || minLoc.y > (minI + n)))
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+
+bool checkMaxValidity(cv::Mat& inputImg, int maxPixIntensity, int maxI, int maxJ, int n, int margin)
+{
+  int height = inputImg.size().height;
+  int width = inputImg.size().width;
+  double max;
+  cv::Point maxLoc;
+  cv::Mat window = inputImg(cv::Range((maxI - n),std::min(maxI + n, height - 1 - margin)),cv::Range((maxJ - n),std::min(maxJ + n, width - 1 - margin)));
+  cv::minMaxLoc(window,NULL,&max,NULL,&maxLoc);
+  if (max > maxPixIntensity && ( maxLoc.x < maxJ|| maxLoc.x > (maxJ + n) || maxLoc.y < maxI || maxLoc.y > (maxI + n)))
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+
+void nms(cv::Mat& blobImg,cv::Mat& cornerImg,FeatureSet& voFeatures,int n=8, int tau=50, int margin=10)
+{
+  
+  int height = blobImg.size().height;
+  int width = blobImg.size().width;
+  //std::cout<<"Height:"<<height<<std::endl;
+  //std::cout<<"Width:"<<width<<std::endl;
+
+  int blobMin_i;
+  int blobMin_j;
+  int blobMax_i;
+  int blobMax_j;
+  int cornerMin_i;
+  int cornerMin_j;
+  int cornerMax_i;
+  int cornerMax_j;
+
+  int blobMin;
+  int blobMax;
+  int cornerMin;
+  int cornerMax;
+
+  int currval;
+  //int count = 0;
+  
+  for (int i=(n+margin);i<=(height - n - margin);i+=(n+1))
+  {
+    
+    for (int j=(n+margin);j<=(width-n-margin);j+=(n+1))
+    {
+      //std::cout<<count<<std::endl;
+      //std::cout<<i<<" "<<j<<std::endl;
+      //cv::Mat window = blobImg(cv::Range(i,i+50),cv::Range(j,j+100));
+      //cv::imshow("Window location",window);
+
+      blobMin_i = i;
+      blobMin_j = j;
+      blobMax_i = i;
+      blobMax_j = j;
+      cornerMin_i = i;
+      cornerMin_j = j;
+      cornerMax_i = i;
+      cornerMax_j = j;
+      
+      blobMin = blobImg.at<float>(i,j);
+      blobMax = blobMin;
+      cornerMin = cornerImg.at<float>(i,j);
+      cornerMax = cornerMin;
+      // loop through this window to get min and max values
+      for (int i2=i;i2<=(i + n);i2++)
+      {
+        for (int j2=j;j2<=(j + n);j2++)
+        {
+          //blob detector
+          currval = blobImg.at<float>(i2, j2);
+          if (currval < blobMin)
+          {
+            blobMin_i = i2;
+            blobMin_j = j2;
+            blobMin = currval;
+          }         
+          else if (currval > blobMax)
+          {
+            blobMax_i = i2;
+            blobMax_j = j2;
+            blobMax = currval;
+          }
+
+          //corner detector
+          currval = cornerImg.at<float>(i2, j2);
+          if (currval < cornerMin)
+          {
+            cornerMin_i = i2;
+            cornerMin_j = j2;
+            cornerMin = currval;
+          }
+
+          else if (currval > cornerMax)
+          {
+            cornerMax_i = i2;
+            cornerMax_j = j2;
+            cornerMax = currval;
+          } 
+        }       
+      }
+
+      if (!checkMinValidity(blobImg, blobMin, blobMin_i, blobMin_j, n, margin))
+      {
+        if (blobMin <= -tau)
+        {
+          // FeaturePoint minBlobPoint;
+          // minBlobPoint.point = cv::Point2f(blobMin_i,blobMin_j);
+          // minBlobPoint.age = 0;
+          // minBlobPoint.featureClass = 1;
+          // minBlobPoint.value = blobMin;
+          // voFeatures.points.push_back(minBlobPoint);
+          voFeatures.points.push_back(cv::Point2f(blobMin_j,blobMin_i));
+          voFeatures.ages.push_back(0);
+
+        }
+      }
+      if (!checkMaxValidity(blobImg, blobMax, blobMax_i, blobMax_j, n, margin))
+      {
+        if (blobMax >= tau)
+        {
+          // FeaturePoint maxBlobPoint;
+          // maxBlobPoint.point = cv::Point2f(blobMax_i,blobMax_j);
+          // maxBlobPoint.age = 0;
+          // maxBlobPoint.featureClass = 2;
+          // maxBlobPoint.value = blobMax;
+          // voFeatures.points.push_back(maxBlobPoint);
+          voFeatures.points.push_back(cv::Point2f(blobMax_j,blobMax_i));
+          voFeatures.ages.push_back(0);
+        }
+      }
+      if (!checkMinValidity(cornerImg, cornerMin, cornerMin_i, cornerMin_j, n, margin))
+      {
+        if (cornerMin <= -tau)
+        {
+          // FeaturePoint minCornerPoint;
+          // minCornerPoint.point = cv::Point2f(cornerMin_i,cornerMin_j);
+          // minCornerPoint.age = 0;
+          // minCornerPoint.featureClass = 3;
+          // minCornerPoint.value = cornerMin;
+          // voFeatures.points.push_back(minCornerPoint);
+          voFeatures.points.push_back(cv::Point2f(cornerMin_j,cornerMin_i));
+          voFeatures.ages.push_back(0);
+        }
+      }
+      if (!checkMaxValidity(cornerImg, cornerMax, cornerMax_i, cornerMax_j, n, margin))
+      {
+        if (cornerMax >= tau)
+        {
+          // FeaturePoint maxCornerPoint;
+          // maxCornerPoint.point = cv::Point2f(cornerMax_i,cornerMax_j);
+          // maxCornerPoint.age = 0;
+          // maxCornerPoint.featureClass = 3;
+          // maxCornerPoint.value = cornerMin;
+          // voFeatures.points.push_back(maxCornerPoint);
+          voFeatures.points.push_back(cv::Point2f(cornerMax_j,cornerMax_i));
+          voFeatures.ages.push_back(0);
+        }
+      }
+    }
+  }
+  //std::cout<<voFeatures.size()<<std::endl;
+  //std::cout<<"NMS Complete"<<std::endl;
+}
+
+void featureDetection(cv::Mat& inputImg,FeatureSet& voFeatures)
+{
+  // cv::Mat blobFeatureImgCV32;
+  // cv::Mat cornerFeatureImgCV32;
+  cv::Mat blobFeatureImg;
+  cv::Mat cornerFeatureImg;
+  cv::Mat inputImgCV32;
+  inputImg.convertTo(inputImgCV32,5);
+  cv::cuda::GpuMat inputImgGpu(inputImgCV32);
+  cv::cuda::GpuMat blobFeatureImgGpu;
+  cv::cuda::GpuMat cornerFeatureImgGpu;
+  cv::Ptr<cv::cuda::Convolution> convolver = cv::cuda::createConvolution(cv::Size(5, 5));
+  convolver->convolve(inputImgGpu, blobFilter, blobFeatureImgGpu);
+  convolver->convolve(inputImgGpu, cornerFilter, cornerFeatureImgGpu);
+  blobFeatureImgGpu.download(blobFeatureImg); // this is FP32!
+  cornerFeatureImgGpu.download(cornerFeatureImg);
+  // blobFeatureImgCV32.convertTo(blobFeatureImg,0);
+  // cornerFeatureImgCV32.convertTo(cornerFeatureImg,0);
+  nms(blobFeatureImg,cornerFeatureImg,voFeatures);
+  // cv::imshow("Blob Features",blobFeatureImg);
+  // cv::imshow("Corner Features",cornerFeatureImg);
+  // cv::imshow("Original",inputImg);
+  //drawFeaturePoints(inputImg,voFeatures.points,2);
+  //cv::imshow("Post-NMS",inputImg);
+  //cv::waitKey(0);
+}
+#endif
 void deleteUnmatchFeatures(std::vector<cv::Point2f>& points0, std::vector<cv::Point2f>& points1, std::vector<uchar>& status)
 {
   //getting rid of points for which the KLT tracking failed or those who have gone outside the frame
@@ -259,6 +475,7 @@ void appendNewFeatures(cv::Mat& image, FeatureSet& current_features)
 {
     std::vector<cv::Point2f>  points_new;
     featureDetectionFast(image, points_new);
+    //featureDetectionGoodFeaturesToTrack(image,points_new);
     current_features.points.insert(current_features.points.end(), points_new.begin(), points_new.end());
     std::vector<int>  ages_new(points_new.size(), 0);
     current_features.ages.insert(current_features.ages.end(), ages_new.begin(), ages_new.end());

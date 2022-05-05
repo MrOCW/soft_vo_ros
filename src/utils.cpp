@@ -1,8 +1,6 @@
 #include "utils.h"
 #include "evaluate_odometry.h"
 
-
-
 // --------------------------------
 // Visualization
 // --------------------------------
@@ -19,7 +17,7 @@ void drawFeaturePoints(cv::Mat image, std::vector<cv::Point2f>& points)
 void display(int frame_id, cv::Mat& trajectory, cv::Mat& pose, std::vector<Matrix>& pose_matrix_gt, float fps, bool show_gt)
 {
     // draw estimated trajectory 
-    int x = int(pose.at<double>(0)) + 300;
+    int x = int(pose.at<double>(0)) + 600;
     int y = int(pose.at<double>(2)) + 100;
     circle(trajectory, cv::Point(x, y) ,1, CV_RGB(255,0,0), 2);
 
@@ -31,7 +29,7 @@ void display(int frame_id, cv::Mat& trajectory, cv::Mat& pose, std::vector<Matri
       pose_gt.at<double>(0) = pose_matrix_gt[frame_id].val[0][3];
       pose_gt.at<double>(1) = pose_matrix_gt[frame_id].val[0][7];
       pose_gt.at<double>(2) = pose_matrix_gt[frame_id].val[0][11];
-      x = int(pose_gt.at<double>(0)) + 300;
+      x = int(pose_gt.at<double>(0)) + 600;
       y = int(pose_gt.at<double>(2)) + 100;
       circle(trajectory, cv::Point(x, y) ,1, CV_RGB(255,255,0), 2);
     }
@@ -169,24 +167,24 @@ void loadGyro(std::string filename, std::vector<std::vector<double>>& time_gyros
     }
 }
 
-void loadImageLeft(cv::Mat& image_color, cv::Mat& image_gary, int frame_id, std::string filepath){
+void loadImageLeft(cv::Mat& image_color, cv::Mat& image_gray, int frame_id, std::string filepath){
     char file[200];
-    sprintf(file, "image_0/%06d.png", frame_id);
+    sprintf(file, "image_00/data/%010d.png", frame_id);
 
     // sprintf(file, "image_0/%010d.png", frame_id);
     std::string filename = filepath + std::string(file);
     image_color = cv::imread(filename, cv::IMREAD_COLOR);
-    cvtColor(image_color, image_gary, cv::COLOR_BGR2GRAY);
+    cvtColor(image_color, image_gray, cv::COLOR_BGR2GRAY);
 }
 
-void loadImageRight(cv::Mat& image_color, cv::Mat& image_gary, int frame_id, std::string filepath){
+void loadImageRight(cv::Mat& image_color, cv::Mat& image_gray, int frame_id, std::string filepath){
     char file[200];
-    sprintf(file, "image_1/%06d.png", frame_id);
+    sprintf(file, "image_01/data/%010d.png", frame_id);
 
     // sprintf(file, "image_0/%010d.png", frame_id);
     std::string filename = filepath + std::string(file);
     image_color = cv::imread(filename, cv::IMREAD_COLOR);
-    cvtColor(image_color, image_gary, cv::COLOR_BGR2GRAY);
+    cvtColor(image_color, image_gray, cv::COLOR_BGR2GRAY);
 }
 
 

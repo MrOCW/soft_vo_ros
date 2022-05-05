@@ -1,5 +1,20 @@
 #include "VisualOdometer.h"
 
+VisualOdometer::VisualOdometer(ros::NodeHandle& nh,image_transport::ImageTransport it,std::string filename_pose)
+{
+    // publisher
+    pose_matrix_gt = loadPoses(filename_pose);
+    pubFeatureImg = it.advertise("/feature_image",1);
+    pub_odom = nh.advertise<nav_msgs::Odometry> ("/vo/odom", 1);
+    projection_mat_initialized = false;
+    vo_initialized = false;
+    cam_T_cam_opt = (cv::Mat_<double>(4, 4) <<  0,  0, 1, 0,
+                                               -1,  0, 0, 0,
+                                                0, -1, 0, 0,
+                                                0,  0, 0, 1);
+    staticTF();
+}
+
 VisualOdometer::VisualOdometer(ros::NodeHandle& nh,image_transport::ImageTransport it)
 {
     // publisher
@@ -7,7 +22,11 @@ VisualOdometer::VisualOdometer(ros::NodeHandle& nh,image_transport::ImageTranspo
     pub_odom = nh.advertise<nav_msgs::Odometry> ("/vo/odom", 1);
     projection_mat_initialized = false;
     vo_initialized = false;
-    //staticTF();
+    cam_T_cam_opt = (cv::Mat_<double>(4, 4) <<  0,  0, 1, 0,
+                                               -1,  0, 0, 0,
+                                                0, -1, 0, 0,
+                                                0,  0, 0, 1);
+    staticTF();
 }
 
 void VisualOdometer::staticTF()
@@ -16,8 +35,8 @@ void VisualOdometer::staticTF()
     geometry_msgs::TransformStamped static_transformStamped;
 
     static_transformStamped.header.stamp = ros::Time::now();
-    static_transformStamped.header.frame_id = "odom";
-    static_transformStamped.child_frame_id = "camera_odom";
+    static_transformStamped.header.frame_id = "";
+    static_transformStamped.child_frame_id = "";
     static_transformStamped.transform.translation.x = 0.;
     static_transformStamped.transform.translation.y = 0.;
     static_transformStamped.transform.translation.z = 0.;
@@ -30,32 +49,31 @@ void VisualOdometer::staticTF()
     static_broadcaster.sendTransform(static_transformStamped);
 }
 
-cv::Mat VisualOdometer::transInCameraFrame(cv::Mat& rotation, cv::Mat& translation)
-{
-    // The visual odometey solvePnp give rotation and translation in camera frame (z forwarding),
-    // transform it into x forawrd
+// cv::Mat VisualOdometer::transInCameraFrame(cv::Mat& rotation, cv::Mat& translation)
+// {
+    
 
-    cv::Mat_<double> T_in_cam_opt = (cv::Mat_<double>(4, 4) << rotation.at<double>(0), rotation.at<double>(1), rotation.at<double>(2), translation.at<double>(0),
-                                                               rotation.at<double>(3), rotation.at<double>(4), rotation.at<double>(5), translation.at<double>(1),
-                                                               rotation.at<double>(6), rotation.at<double>(7), rotation.at<double>(8), translation.at<double>(2),
-                                                               0,  0,  0, 1);
+//     cv::Mat_<double> T_in_cam_opt = (cv::Mat_<double>(4, 4) << rotation.at<double>(0), rotation.at<double>(1), rotation.at<double>(2), translation.at<double>(0),
+//                                                                rotation.at<double>(3), rotation.at<double>(4), rotation.at<double>(5), translation.at<double>(1),
+//                                                                rotation.at<double>(6), rotation.at<double>(7), rotation.at<double>(8), translation.at<double>(2),
+//                                                                0,  0,  0, 1);
+//     // cam -> cam_optical
+//     cv::Mat_<double> cam_T_cam_opt = (cv::Mat_<double>(4, 4) <<   0,  0, 1, 0,
+//                                                                    -1, 0, 0, 0,
+//                                                                    0, -1, 0, 0,
+//                                                                    0,  0, 0, 1);
 
-    cv::Mat_<double> cam_T_cam_opt = (cv::Mat_<double>(4, 4) <<   0,  0, 1, 0,
-                                                                   -1, 0, 0, 0,
-                                                                   0, -1, 0, 0,
-                                                                   0,  0, 0, 1);
+//     cv::Mat_<double> T_in_cam = cam_T_cam_opt * T_in_cam_opt * cam_T_cam_opt.inv();
 
-    cv::Mat_<double> T_in_cam = cam_T_cam_opt * T_in_cam_opt * cam_T_cam_opt.inv();
+//     return T_in_cam;
 
-    return T_in_cam;
-
-}
+// }
 
 
-void VisualOdometer::integrateOdometry(cv::Mat& frame_pose, cv::Mat& trans)
-{
-    frame_pose = frame_pose * trans;
-}
+// void VisualOdometer::integrateOdometry(cv::Mat& frame_pose, cv::Mat& trans)
+// {
+//     frame_pose = frame_pose * trans;
+// }
 
 void VisualOdometer::constructOdomMsg(ros::Time stamp, cv::Mat& frame_pose, cv::Mat& rotation, cv::Mat& translation, float dt)
 {
@@ -80,7 +98,7 @@ void VisualOdometer::constructOdomMsg(ros::Time stamp, cv::Mat& frame_pose, cv::
     odom.pose.pose.orientation = odom_quat;
 
     //set the velocity
-    odom.child_frame_id = "camera_color_left";
+    odom.child_frame_id = "";
     // odom.twist.twist.linear.x = vx;
     // odom.twist.twist.linear.y = vy;
     // odom.twist.twist.angular.z = vth;
@@ -89,35 +107,52 @@ void VisualOdometer::constructOdomMsg(ros::Time stamp, cv::Mat& frame_pose, cv::
 }
 
 
-bool VisualOdometer::checkValidTrans(cv::Mat& rotation, cv::Mat& translation)
-{
+// bool VisualOdometer::checkValidTrans(cv::Mat& rotation, cv::Mat& translation)
+// {
 
-    bool valid = true;
+//     bool valid = true;
 
-    // Check rotation
-    cv::Vec3f rotation_euler = rotationMatrixToEulerAngles(rotation);
+//     // Check rotation
+//     cv::Vec3f rotation_euler = rotationMatrixToEulerAngles(rotation);
+//     cv::Mat rigid_body_transformation;
+//     if(abs(rotation_euler[1])>0.1 || abs(rotation_euler[0])>0.1 || abs(rotation_euler[2])>0.1)
+//     {
+//         std::cout << "[WARNING] Too large rotation" << std::endl;
+//         valid = false;
+//     }
 
-    if(abs(rotation_euler[1])>0.1 || abs(rotation_euler[0])>0.1 || abs(rotation_euler[2])>0.1)
-    {
-        std::cout << "[WARNING] Too large rotation" << std::endl;
-        valid = false;
-    }
+//     //void integrateOdometryStereo
+//     cv::Mat addup = (cv::Mat_<double>(1, 4) << 0, 0, 0, 1);
 
-    // Check translation
-    double scale = sqrt((translation.at<double>(3))*(translation.at<double>(3)) 
-                        + (translation.at<double>(7))*(translation.at<double>(7))
-                        + (translation.at<double>(11))*(translation.at<double>(11))) ;
+//     cv::hconcat(rotation, translation, rigid_body_transformation);
+//     cv::vconcat(rigid_body_transformation, addup, rigid_body_transformation);
 
-    std::cout << "scale: " << scale << std::endl;
+//     rigid_body_transformation = cam_T_cam_opt * rigid_body_transformation * cam_T_cam_opt.inv();
+//     // Check translation
+//     double scale = sqrt((translation.at<double>(0))*(translation.at<double>(0)) 
+//                         + (translation.at<double>(1))*(translation.at<double>(1))
+//                         + (translation.at<double>(2))*(translation.at<double>(2))) ;
 
-    if (scale <= 0.0 || scale > 10) 
-    {
-        std::cout << "[WARNING] scale below 0.1, or incorrect translation" << std::endl;
-        valid = false;
-    }
+//     // frame_pose = frame_pose * rigid_body_transformation;
+//     std::cout << "scale: " << scale << std::endl;
 
-    return valid;
-}
+//     rigid_body_transformation = rigid_body_transformation.inv();
+//     // if ((scale>0.1)&&(translation_stereo.at<double>(2) > translation_stereo.at<double>(0)) && (translation_stereo.at<double>(2) > translation_stereo.at<double>(1))) 
+//     if (scale > 0.05 && scale < 10) 
+//     {
+//       // std::cout << "Rpose" << Rpose << std::endl;
+
+//       frame_pose = frame_pose * rigid_body_transformation;
+
+//     }
+//     else 
+//     {
+//         std::cout << "[WARNING] scale below 0.1, or incorrect translation" << std::endl;
+//         valid = false;
+//     }
+
+//     return valid;
+// }
 
 
 void VisualOdometer::tracking(cv::Mat& image_left, cv::Mat& image_right, ros::Time& stamp)
@@ -133,8 +168,7 @@ void VisualOdometer::tracking(cv::Mat& image_left, cv::Mat& image_right, ros::Ti
     else
     {
         std::vector<cv::Point2f> pointsLeft_t0, pointsRight_t0, pointsLeft_t1, pointsRight_t1;  
-        std::vector<cv::Point2f> oldPointsLeft_t0 = currentVOFeatures.points;   
-
+        clock_t t_a = clock();
         matchingFeatures( image_left_last, image_right_last,
                           image_left, image_right, 
                           currentVOFeatures,
@@ -150,8 +184,7 @@ void VisualOdometer::tracking(cv::Mat& image_left, cv::Mat& image_right, ros::Ti
         std::cout << "delta_t : " << delta_t << std::endl;
         std::cout << "currentFramePointsLeft size : " << pointsLeft_t0.size() << std::endl;
 
-        if (pointsLeft_t0.size() > 100)
-        {
+
 
             // ---------------------
             // Triangulate 3D Points
@@ -160,79 +193,79 @@ void VisualOdometer::tracking(cv::Mat& image_left, cv::Mat& image_right, ros::Ti
             cv::triangulatePoints( projMatrl,  projMatrr,  pointsLeft_t0,  pointsRight_t0,  points4D_t0);
             cv::convertPointsFromHomogeneous(points4D_t0.t(), points3D_t0);
 
-            cv::Mat points3D_t1, points4D_t1;
-            cv::triangulatePoints( projMatrl,  projMatrr,  pointsLeft_t1,  pointsRight_t1,  points4D_t1);
-            cv::convertPointsFromHomogeneous(points4D_t1.t(), points3D_t1);
-
             // ---------------------
             // Tracking transfomation
             // ---------------------
             cv::Mat rotation = cv::Mat::eye(3, 3, CV_64F);
             cv::Mat translation = cv::Mat::zeros(3, 1, CV_64F);
 
-
-            // rotation = (cv::Mat_<double>(3, 3) <<   0, 0, 1,
-            //                                        -0, 1, 0,
-            //                                        -1, 0, 0);
-
-            // translation = (cv::Mat_<double>(3, 1) << 1, 2, 3);
+            trackingFrame2Frame(projMatrl, projMatrr, pointsLeft_t0, pointsLeft_t1, points3D_t0, rotation, translation, false);
             // std::cout << "rotation: " << rotation << std::endl;
             // std::cout << "translation: " << translation << std::endl;
+            //cv::Mat trans = transInCameraFrame(rotation, translation);
 
-
-            // std::cout << "trans: " << trans << std::endl;
-
-
-            trackingFrame2Frame(projMatrl, projMatrr, pointsLeft_t0, pointsLeft_t1, points3D_t0, rotation, translation);
-            cv::Mat trans = transInCameraFrame(rotation, translation);
-
-            // translation = -translation;
-
-            sensor_msgs::ImagePtr featureImg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", constructFeatureImg(image_left,pointsLeft_t0,pointsLeft_t1)).toImageMsg();
-            pubFeatureImg.publish(featureImg);
+            pubFeatureImg.publish(cv_bridge::CvImage(std_msgs::Header(), "bgr8", constructFeatureImg(image_left,pointsLeft_t0,pointsLeft_t1)).toImageMsg());
             // ------------------------------------------------
             // Intergrating and display
             // ------------------------------------------------
-            bool trans_valid = checkValidTrans(rotation, translation);
+            // bool trans_valid = checkValidTrans(rotation, translation);
 
 
-            // std::cout << "rotation: " << rotation_euler << std::endl;
-            // std::cout << "translation: " << translation.t() << std::endl;
+            // // std::cout << "rotation: " << rotation_euler << std::endl;
+            // // std::cout << "translation: " << translation.t() << std::endl;
 
-            if(trans_valid)
+            
+
+
+            cv::Vec3f rotation_euler = rotationMatrixToEulerAngles(rotation);
+
+
+            cv::Mat rigid_body_transformation;
+
+            if(abs(rotation_euler[1])<0.1 && abs(rotation_euler[0])<0.1 && abs(rotation_euler[2])<0.1)
             {
-                 integrateOdometry(frame_pose, trans);
-                 constructOdomMsg(stamp, frame_pose, rotation, translation, delta_t);
+                //integrateOdometryStereo(frame_id, rigid_body_transformation, frame_pose, rotation, translation);
+                // The visual odometey solvePnp give rotation and translation in camera frame (z forwarding),
+                // transform it into x forward
+                cv::Mat addup = (cv::Mat_<double>(1, 4) << 0, 0, 0, 1);
+                cv::hconcat(rotation, translation, rigid_body_transformation);
+                cv::vconcat(rigid_body_transformation, addup, rigid_body_transformation);
+
+                rigid_body_transformation = cam_T_cam_opt * rigid_body_transformation * cam_T_cam_opt.inv();
+
+                double scale = sqrt((translation.at<double>(0))*(translation.at<double>(0)) 
+                        + (translation.at<double>(1))*(translation.at<double>(1))
+                        + (translation.at<double>(2))*(translation.at<double>(2))) ;
+
+                std::cout << "scale: " << scale << std::endl;
+
+                if (scale > 0.05 && scale < 10) 
+                {
+                    frame_pose = frame_pose * rigid_body_transformation.inv();
+                }
+                else 
+                {
+                    std::cout << "[WARNING] scale below 0.1, or incorrect translation" << std::endl;
+                }
+
+            } 
+            else 
+            {
+                std::cout << "Too large rotation"  << std::endl;
             }
+            constructOdomMsg(stamp, frame_pose, rotation, translation, delta_t);
+            float fps = 1000/(1000*(double)(clock()-t_a)/CLOCKS_PER_SEC);
+        // std::cout << "rigid_body_transformation" << rigid_body_transformation << std::endl;
+        // std::cout << "rotation: " << rotation_euler << std::endl;
+        // std::cout << "translation: " << translation.t() << std::endl;
+        // std::cout << "frame_pose" << frame_pose << std::endl;
 
             std::cout << "frame_pose" << frame_pose << std::endl;
-
-
-            // // std::cout << "rigid_body_transformation" << rigid_body_transformation << std::endl;
-
-            // // std::cout << "frame_pose" << frame_pose << std::endl;
-
-
-            // Rpose =  frame_pose(cv::Range(0, 3), cv::Range(0, 3));
-            // cv::Vec3f Rpose_euler = rotationMatrixToEulerAngles(Rpose);
-            // // std::cout << "Rpose_euler" << Rpose_euler << std::endl;
-
-            // cv::Mat pose = frame_pose.col(3).clone();
-
-
-            // std::cout << "Pose: " << pose.t() << std::endl;
-
-        }
-        else
-        {
-            std::cerr << "[]WARNING] Matched feature cirtically low" << pose.t() << std::endl;
-
-        }
-
-
+            std::cout << "[Info] FPS: " << fps << std::endl;
+        
+        // cv::Mat xyz = frame_pose.col(3).clone();
+        // display(frame_id,trajectory,xyz, pose_matrix_gt ,fps,true);
     }
-
-
 }
 
 void VisualOdometer::imageGrabCallback(const sensor_msgs::ImageConstPtr& left_image_msg_ptr, const sensor_msgs::ImageConstPtr& right_image_msg_ptr,
